@@ -120,7 +120,7 @@ function newBlock(start, end) {
 }
 
 const newSpan = () => ({
-  text: { txt: "New span" }, // Changed to object
+  text: { en: "New span" }, // Changed to object
   isBold: false,
   isItalic: false,
   link: null,
@@ -162,7 +162,7 @@ function newSlide() {
               blendMode: "normal",
               spans: [
                 {
-                  text: { txt: "New Slide" },
+                  text: { en: "New Slide" },
                   isBold: true,
                   isItalic: false,
                   link: null,
@@ -182,8 +182,8 @@ function migrateStory(story) {
     ...story,
     title:
       typeof story.title === "string"
-        ? { txt: story.title }
-        : story.title || { txt: "" },
+        ? { en: story.title }
+        : story.title || { en: "" },
     slides: (story.slides || []).map(migrateSlide),
   };
 }
@@ -213,8 +213,8 @@ function migrateContent(content) {
               ...sp,
               text:
                 typeof sp.text === "string"
-                  ? { txt: sp.text }
-                  : sp.text || { txt: "" },
+                  ? { en: sp.text }
+                  : sp.text || { en: "" },
             })),
           }
         : {}),
@@ -222,13 +222,13 @@ function migrateContent(content) {
         ? {
             items: tb.items.map((item) => {
               if (typeof item === "string")
-                return { text: { txt: item }, link: null };
+                return { text: { en: item }, link: null };
               return {
                 ...item,
                 text:
                   typeof item.text === "string"
-                    ? { txt: item.text }
-                    : item.text || { txt: "" },
+                    ? { en: item.text }
+                    : item.text || { en: "" },
               };
             }),
           }
@@ -303,7 +303,7 @@ function Inp({
 // ─── NEW: Translation Input Component ─────────────────────────────────────────
 function TransInp({ value, onChange, placeholder }) {
   const [expanded, setExpanded] = useState(false);
-  const val = typeof value === "string" ? { txt: value } : value || { txt: "" };
+  const val = typeof value === "string" ? { en: value } : value || { en: "" };
   const update = (lang, t) => onChange({ ...val, [lang]: t });
 
   const inpS = {
@@ -1210,7 +1210,7 @@ function TextBlockItem({ block, onChange, onRemove }) {
                       ...block,
                       items: [
                         ...(block.items || []),
-                        { text: { txt: "New item" }, link: null },
+                        { text: { en: "New item" }, link: null },
                       ],
                     })
                   }
