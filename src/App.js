@@ -304,7 +304,15 @@ function Inp({
 function TransInp({ value, onChange, placeholder }) {
   const [expanded, setExpanded] = useState(false);
   const val = typeof value === "string" ? { en: value } : value || { en: "" };
-  const update = (lang, t) => onChange({ ...val, [lang]: t });
+
+  const update = (lang, t) => {
+    const newVal = { ...val, [lang]: t };
+    if (lang !== "txt") {
+      delete newVal.txt;
+    }
+    if (!t) delete newVal[lang];
+    onChange(newVal);
+  };
 
   const inpS = {
     flex: 1,
@@ -344,18 +352,18 @@ function TransInp({ value, onChange, placeholder }) {
           style={{
             width: 16,
             fontSize: 8,
-            color: c.dim,
+            color: c.gold,
             display: "flex",
             alignItems: "center",
             fontFamily: "monospace",
           }}
         >
-          TXT
+          EN
         </div>
         <input
-          value={val.txt || ""}
-          onChange={(e) => update("txt", e.target.value)}
-          placeholder={placeholder}
+          value={val.en || val.txt || ""}
+          onChange={(e) => update("en", e.target.value)}
+          placeholder={placeholder || "English Base"}
           style={inpS}
         />
         <button
@@ -385,13 +393,13 @@ function TransInp({ value, onChange, placeholder }) {
             paddingLeft: 20,
           }}
         >
-          {["en", "pt", "es"].map((lang) => (
+          {["pt", "es", "txt"].map((lang) => (
             <div key={lang} style={{ display: "flex", gap: 4 }}>
               <div
                 style={{
                   width: 14,
                   fontSize: 8,
-                  color: c.gold,
+                  color: lang === "txt" ? c.dim : c.gold,
                   display: "flex",
                   alignItems: "center",
                   fontFamily: "monospace",
@@ -402,7 +410,9 @@ function TransInp({ value, onChange, placeholder }) {
               <input
                 value={val[lang] || ""}
                 onChange={(e) => update(lang, e.target.value)}
-                placeholder={`${lang} translation`}
+                placeholder={
+                  lang === "txt" ? "Universal override" : `${lang} translation`
+                }
                 style={subInpS}
               />
             </div>
@@ -850,7 +860,7 @@ function GridBlockPreview({ block, previewLang }) {
   if (content.type === "text") {
     const firstTb = content.textBlocks?.[0];
     const pObj = firstTb?.spans?.[0]?.text || firstTb?.items?.[0]?.text || {};
-    const p = pObj[previewLang] || pObj.txt || "";
+    const p = pObj[previewLang] || pObj.en || pObj.txt || "";
     return (
       <div
         style={{
@@ -1559,7 +1569,7 @@ function PreviewTextBlock({ tb, previewLang }) {
         {(tb.items || []).map((item, j) => {
           const link = typeof item === "string" ? null : item.link;
           const tObj = item.text || {};
-          const displayTxt = tObj[previewLang] || tObj.txt || "";
+          const displayTxt = tObj[previewLang] || tObj.en || tObj.txt || "";
           return (
             <li
               key={j}
@@ -1590,7 +1600,7 @@ function PreviewTextBlock({ tb, previewLang }) {
     >
       {(tb.spans || []).map((span, j) => {
         const tObj = span.text || {};
-        const displayTxt = tObj[previewLang] || tObj.txt || "";
+        const displayTxt = tObj[previewLang] || tObj.en || tObj.txt || "";
         return (
           <span
             key={j}
@@ -1769,7 +1779,7 @@ export default function StoryEditor() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState("edit");
   const [showImport, setShowImport] = useState(false);
-  const [previewLang, setPreviewLang] = useState("txt"); // NEW: Global Preview Language
+  const [previewLang, setPreviewLang] = useState("en"); // Changed default to 'en'
 
   const slide = story.slides[slideIdx];
   const selectedBlock =
@@ -1810,11 +1820,44 @@ export default function StoryEditor() {
     setSlideIdx(i + 1);
     setSelBlock(null);
   };
-  const copy = () =>
-    navigator.clipboard.writeText(JSON.stringify([story], null, 2)).then(() => {
+
+  // NEW: Intercepts the JSON and auto-fills missing languages with English
+  const generateExportJSON = useCallback(() => {
+    return JSON.stringify(
+      [story],
+      (key, val) => {
+        // Find objects that are strictly Translation models
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          const isTranslation =
+            Object.keys(val).length > 0 &&
+            Object.keys(val).every((k) =>
+              ["en", "pt", "es", "txt"].includes(k)
+            );
+
+          if (isTranslation) {
+            const baseText = val.en || val.txt || "";
+            // We strip out 'txt' to protect Kotlin, and force fallback values into pt/es
+            const { txt, ...rest } = val;
+            return {
+              ...rest,
+              en: rest.en || baseText,
+              pt: rest.pt || baseText,
+              es: rest.es || baseText,
+            };
+          }
+        }
+        return val;
+      },
+      2
+    );
+  }, [story]);
+
+  const copy = () => {
+    navigator.clipboard.writeText(generateExportJSON()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
 
   return (
     <div
@@ -1849,7 +1892,6 @@ export default function StoryEditor() {
           flexShrink: 0,
         }}
       >
-        {/* Sidebar content remains mostly same, simplified for brevity */}
         <div
           style={{
             padding: "10px 10px 8px",
@@ -2087,7 +2129,7 @@ export default function StoryEditor() {
                 wordBreak: "break-word",
               }}
             >
-              {JSON.stringify([story], null, 2)}
+              {generateExportJSON()}
             </pre>
           ) : slide ? (
             <>
@@ -2163,10 +2205,10 @@ export default function StoryEditor() {
               cursor: "pointer",
             }}
           >
-            <option value="txt">Base (TXT)</option>
             <option value="en">English</option>
             <option value="pt">Português</option>
             <option value="es">Español</option>
+            <option value="txt">Base (TXT)</option>
           </select>
         </div>
         <div
